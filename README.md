@@ -1,4 +1,4 @@
-# Stellaris Mod Manager
+# Stellaris Mod Manager + Launcher
 
 ![Stellaris Mod Manager screenshot](screenshot.png)
 
