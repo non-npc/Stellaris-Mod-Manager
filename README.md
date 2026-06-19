@@ -10,6 +10,8 @@ load order to the `dlc_load.json` file consumed by Stellaris.
 The launcher database is always opened read-only. Saving creates a timestamped
 backup of the existing `dlc_load.json` before replacing it atomically.
 
+Select the mods you want to load, click save list, then click refresh and the UI will update and you can re-order the mods.
+
 ## Mod installation
 
 This application manages which existing mods are enabled and their load order.
