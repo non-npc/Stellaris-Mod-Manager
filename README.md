@@ -1,5 +1,7 @@
 # Stellaris Mod Manager
 
+![Stellaris Mod Manager screenshot](screenshot.png)
+
 A small PyQt6 desktop manager that reads available mods from Paradox's
 `launcher-v2.sqlite`, displays version compatibility, and writes the enabled
 load order to the `dlc_load.json` file consumed by Stellaris.
