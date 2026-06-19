@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stellaris-mod-manager"
+version = "0.1.0"
+description = "A lightweight launcher-independent Stellaris mod manager."
+requires-python = ">=3.11"
+dependencies = [
+    "PyQt6>=6.7,<7",
+    "numpy>=2.0,<3",
+]
+
+[project.scripts]
+stellaris-mod-manager = "stellaris_manager.main_window:run_application"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["stellaris_manager*"]
