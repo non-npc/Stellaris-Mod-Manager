@@ -25,10 +25,12 @@ from PyQt6.QtWidgets import (
 from .compatibility import compatibility_counts, compatibility_label
 from .data_store import (
     ModDataError,
+    apply_saved_mod_state,
     load_mods,
     read_game_version,
     read_launch_arguments,
     save_enabled_registry_ids,
+    save_mod_state,
 )
 from .models import AppPaths, ModInfo
 from .platform_paths import executable_path, save_paths
@@ -191,12 +193,14 @@ class MainWindow(QMainWindow):
         enabled = state == Qt.CheckState.Checked.value
         if mod.enabled == enabled:
             return
+        self.mods.remove(mod)
         mod.enabled = enabled
-        if enabled:
-            mod.load_order = self._next_enabled_position()
-        else:
-            mod.load_order = None
+        insert_at = sum(item.enabled for item in self.mods)
+        self.mods.insert(insert_at, mod)
+        self._reindex_mods()
         self.dirty = True
+        self._populate_table()
+        self._select_registry_id(registry_id)
         self.statusBar().showMessage("Unsaved changes")
 
     def move_selected(self, direction: int) -> None:
@@ -214,8 +218,9 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Only enabled mods can be reordered")
             return
         enabled[index], enabled[target] = enabled[target], enabled[index]
-        for position, mod in enumerate(enabled):
-            mod.load_order = position
+        disabled = [mod for mod in self.mods if not mod.enabled]
+        self.mods = [*enabled, *disabled]
+        self._reindex_mods()
         self.dirty = True
         self._populate_table()
         self._select_registry_id(registry_id)
@@ -225,9 +230,16 @@ class MainWindow(QMainWindow):
         if self.busy:
             return False
         enabled_ids = [mod.registry_id for mod in self._enabled_mods()]
+        ordered_state = [
+            (mod.registry_id, mod.enabled) for mod in self._ordered_mods()
+        ]
         self._set_busy(True, "Saving mod list…")
         worker = FunctionWorker(
-            save_enabled_registry_ids, self.paths.dlc_load_file, enabled_ids
+            self._save_snapshot,
+            self.paths.dlc_load_file,
+            self.paths.manager_database,
+            enabled_ids,
+            ordered_state,
         )
         worker.signals.succeeded.connect(
             lambda backup, count=len(enabled_ids): self._finish_save(backup, count)
@@ -320,27 +332,20 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def _enabled_mods(self) -> list[ModInfo]:
-        return sorted(
-            (mod for mod in self.mods if mod.enabled),
-            key=lambda mod: (
-                mod.load_order if mod.load_order is not None else 10**9,
-                mod.display_name.casefold(),
-            ),
-        )
+        return [mod for mod in self._ordered_mods() if mod.enabled]
 
     def _ordered_mods(self) -> list[ModInfo]:
-        enabled = self._enabled_mods()
-        disabled = sorted(
-            (mod for mod in self.mods if not mod.enabled),
-            key=lambda mod: mod.display_name.casefold(),
-        )
-        return [*enabled, *disabled]
+        return sorted(self.mods, key=lambda mod: mod.sort_order)
 
-    def _next_enabled_position(self) -> int:
-        positions = [
-            mod.load_order for mod in self.mods if mod.enabled and mod.load_order is not None
-        ]
-        return max(positions, default=-1) + 1
+    def _reindex_mods(self) -> None:
+        enabled_position = 0
+        for position, mod in enumerate(self.mods):
+            mod.sort_order = position
+            if mod.enabled:
+                mod.load_order = enabled_position
+                enabled_position += 1
+            else:
+                mod.load_order = None
 
     def _select_registry_id(self, registry_id: str) -> None:
         for row in range(self.table.rowCount()):
@@ -372,7 +377,19 @@ class MainWindow(QMainWindow):
     def _load_snapshot(paths: AppPaths) -> tuple[str, list[ModInfo]]:
         version = read_game_version(paths.launcher_settings)
         mods = load_mods(paths.launcher_database, paths.dlc_load_file)
+        mods = apply_saved_mod_state(mods, paths.manager_database)
         return version, mods
+
+    @staticmethod
+    def _save_snapshot(
+        dlc_load_file,
+        manager_database,
+        enabled_ids: list[str],
+        ordered_state: list[tuple[str, bool]],
+    ):
+        backup = save_enabled_registry_ids(dlc_load_file, enabled_ids)
+        save_mod_state(manager_database, ordered_state)
+        return backup
 
     def _finish_refresh(self, result: object) -> None:
         self.game_version, self.mods = result

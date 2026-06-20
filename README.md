@@ -1,13 +1,19 @@
-# Stellaris Mod Manager
+# Stellaris Mod Manager + Launcher
 
 ![Stellaris Mod Manager screenshot](screenshot.png)
+For windows users you can get the EXE here https://github.com/non-npc/Stellaris-Mod-Manager/releases/download/v0.1.0/StellarisModManager_v010.zip
 
 A small PyQt6 desktop manager that reads available mods from Paradox's
 `launcher-v2.sqlite`, displays version compatibility, and writes the enabled
-load order to the `dlc_load.json` file consumed by Stellaris.
+load order to the `dlc_load.json` file consumed by Stellaris. The manager keeps
+its own `stellaris-mod-manager.sqlite` database for the user's checkbox state
+and complete display order.
 
-The launcher database is always opened read-only. Saving creates a timestamped
-backup of the existing `dlc_load.json` before replacing it atomically.
+The Paradox launcher database is always opened read-only. Saving creates a
+timestamped backup of the existing `dlc_load.json` before replacing it
+atomically.
+
+Select the mods you want to load, click save list, then click refresh and the UI will update and you can re-order the mods.
 
 ## Mod installation
 

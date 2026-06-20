@@ -16,6 +16,7 @@ class ModInfo:
     directory: Path | None
     enabled: bool = False
     load_order: int | None = None
+    sort_order: int = 0
 
 
 @dataclass(slots=True)
@@ -26,6 +27,10 @@ class AppPaths:
     @property
     def launcher_database(self) -> Path:
         return self.user_data_dir / "launcher-v2.sqlite"
+
+    @property
+    def manager_database(self) -> Path:
+        return self.user_data_dir / "stellaris-mod-manager.sqlite"
 
     @property
     def dlc_load_file(self) -> Path:

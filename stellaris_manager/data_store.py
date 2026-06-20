@@ -113,6 +113,124 @@ def load_mods(database: Path, dlc_load_file: Path) -> list[ModInfo]:
     )
 
 
+def load_saved_mod_state(database: Path) -> dict[str, tuple[bool, int]]:
+    if not database.exists():
+        return {}
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(database, timeout=2)
+        rows = connection.execute(
+            """
+            SELECT registry_id, enabled, position
+            FROM mod_order
+            ORDER BY position
+            """
+        ).fetchall()
+    except sqlite3.Error as exc:
+        raise ModDataError(f"Could not read mod-manager database: {exc}") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    return {
+        str(registry_id): (bool(enabled), int(position))
+        for registry_id, enabled, position in rows
+    }
+
+
+def apply_saved_mod_state(mods: list[ModInfo], database: Path) -> list[ModInfo]:
+    saved = load_saved_mod_state(database)
+    if not saved:
+        ordered = sorted(
+            mods,
+            key=lambda mod: (
+                not mod.enabled,
+                mod.load_order if mod.load_order is not None else 10**9,
+                mod.display_name.casefold(),
+            ),
+        )
+    else:
+        saved_enabled_ids = {
+            registry_id for registry_id, (enabled, _) in saved.items() if enabled
+        }
+        known_ids = {mod.registry_id for mod in mods}
+        for registry_id in saved_enabled_ids - known_ids:
+            mods.append(
+                ModInfo(
+                    database_id="",
+                    registry_id=registry_id,
+                    display_name=f"Missing launcher entry: {registry_id}",
+                    version="—",
+                    required_version="—",
+                    source="unknown",
+                    status="missing",
+                    directory=None,
+                )
+            )
+
+        fallback_position = len(saved)
+        for mod in mods:
+            state = saved.get(mod.registry_id)
+            if state is None:
+                mod.enabled = False
+                mod.load_order = None
+                mod.sort_order = fallback_position
+                fallback_position += 1
+            else:
+                mod.enabled, mod.sort_order = state
+
+        ordered = sorted(
+            mods,
+            key=lambda mod: (
+                not mod.enabled,
+                mod.sort_order,
+                mod.display_name.casefold(),
+            ),
+        )
+
+    enabled_position = 0
+    for position, mod in enumerate(ordered):
+        mod.sort_order = position
+        if mod.enabled:
+            mod.load_order = enabled_position
+            enabled_position += 1
+        else:
+            mod.load_order = None
+    return ordered
+
+
+def save_mod_state(database: Path, ordered_state: list[tuple[str, bool]]) -> None:
+    database.parent.mkdir(parents=True, exist_ok=True)
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(database, timeout=2)
+        with connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS mod_order (
+                    registry_id TEXT PRIMARY KEY,
+                    enabled INTEGER NOT NULL,
+                    position INTEGER NOT NULL
+                )
+                """
+            )
+            connection.execute("DELETE FROM mod_order")
+            connection.executemany(
+                """
+                INSERT INTO mod_order (registry_id, enabled, position)
+                VALUES (?, ?, ?)
+                """,
+                [
+                    (registry_id, int(enabled), position)
+                    for position, (registry_id, enabled) in enumerate(ordered_state)
+                ],
+            )
+    except sqlite3.Error as exc:
+        raise ModDataError(f"Could not save mod-manager database: {exc}") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+
+
 def save_enabled_registry_ids(dlc_load_file: Path, enabled_ids: list[str]) -> Path | None:
     dlc_load_file.parent.mkdir(parents=True, exist_ok=True)
     payload = _read_dlc_payload(dlc_load_file)
