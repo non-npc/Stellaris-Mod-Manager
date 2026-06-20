@@ -15,6 +15,8 @@ atomically.
 
 Select the mods you want to load, click save list, then click refresh and the UI will update and you can re-order the mods.
 
+Select the mods you want to load, click save list, then click refresh and the UI will update and you can re-order the mods.
+
 ## Mod installation
 
 This application manages which existing mods are enabled and their load order.
