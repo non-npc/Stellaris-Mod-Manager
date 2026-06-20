@@ -1,7 +1,7 @@
 # Stellaris Mod Manager + Launcher
 
 ![Stellaris Mod Manager screenshot](screenshot.png)
-For windows users you can get the EXE here https://github.com/non-npc/Stellaris-Mod-Manager/releases/download/v0.1.0/StellarisModManager_v010.zip
+For windows users you can get the EXE here https://github.com/non-npc/Stellaris-Mod-Manager/releases/download/v0.1.1/StellarisModManager_v011.zip
 
 A small PyQt6 desktop manager that reads available mods from Paradox's
 `launcher-v2.sqlite`, displays version compatibility, and writes the enabled
